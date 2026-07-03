@@ -58,6 +58,21 @@ if uploaded_file is None:
 
 df = pd.read_csv(uploaded_file)
 
+# ------------------------------------------------------------
+# Standardise column names
+# Your CSV uses Volatility_7d, while the original code expected Volatility_7.
+# This line makes the app work with your uploaded CSV.
+# ------------------------------------------------------------
+
+df = df.rename(columns={
+    "Volatility_7d": "Volatility_7"
+})
+
+
+# ------------------------------------------------------------
+# Inspect dataset
+# ------------------------------------------------------------
+
 st.header("1. Inspecting the Dataset")
 
 st.write("Dataset shape:")
@@ -124,6 +139,7 @@ if nvda.empty:
 nvda["Open_Close_Difference"] = nvda["Close"] - nvda["Open"]
 
 st.subheader("NVDA Data Preview")
+
 st.dataframe(
     nvda[["Date", "Ticker", "Open", "Close", "Open_Close_Difference"]].head()
 )
@@ -133,7 +149,7 @@ with st.expander("Missing values in NVDA data"):
 
 
 # ------------------------------------------------------------
-# Target plot
+# Target variable plot
 # ------------------------------------------------------------
 
 st.header("2. Target Variable")
@@ -190,6 +206,13 @@ if len(model_data) < 50:
         "The model may not be reliable."
     )
 
+if model_data.empty:
+    st.error(
+        "The model dataset is empty after creating lagged variables. "
+        "Please check that the uploaded CSV has enough NVDA records."
+    )
+    st.stop()
+
 
 # ------------------------------------------------------------
 # Train-test split
@@ -207,6 +230,13 @@ y_train = y.iloc[:split_index]
 y_test = y.iloc[split_index:]
 
 dates_test = model_data["Date"].iloc[split_index:]
+
+if X_train.empty or X_test.empty:
+    st.error(
+        "The training or testing dataset is empty. "
+        "Please upload a larger dataset."
+    )
+    st.stop()
 
 
 # ------------------------------------------------------------
@@ -275,8 +305,16 @@ st.write(
 st.header("5. Actual vs Predicted Values")
 
 fig2, ax2 = plt.subplots(figsize=(12, 5))
-ax2.plot(results["Date"], results["Actual_Open_Close_Difference"], label="Actual")
-ax2.plot(results["Date"], results["Predicted_Open_Close_Difference"], label="Predicted")
+ax2.plot(
+    results["Date"],
+    results["Actual_Open_Close_Difference"],
+    label="Actual"
+)
+ax2.plot(
+    results["Date"],
+    results["Predicted_Open_Close_Difference"],
+    label="Predicted"
+)
 ax2.set_title("Actual vs Predicted NVDA Open-to-Close Difference")
 ax2.set_xlabel("Date")
 ax2.set_ylabel("Close - Open")
@@ -318,7 +356,10 @@ importance_df = pd.DataFrame({
 st.dataframe(importance_df)
 
 fig4, ax4 = plt.subplots(figsize=(10, 6))
-ax4.barh(importance_df["Feature"], importance_df["Importance"])
+ax4.barh(
+    importance_df["Feature"],
+    importance_df["Importance"]
+)
 ax4.set_title("XGBoost Feature Importance")
 ax4.set_xlabel("Importance")
 ax4.set_ylabel("Feature")
